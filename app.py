@@ -14,14 +14,45 @@ from google import genai
 gemini_api_key = st.secrets["gemini_api_key"]
 gmn_client = genai.Client(api_key=gemini_api_key)
 
-def generate_gemini_answer(prompt):
+def generate_gemini_answer(prompt, mode="landlord"):
+    """
+    prompt: The raw station data (Traffic, Max Card, etc.)
+    mode: "landlord" for Asset Optimizer view, "retail" for Customer Demand view
+    """
+    
+    # Configuration for your two specific AI personas
+    PERSONA_PROMPTS = {
+        "landlord": (
+            "คุณคือ Leasing Strategy Manager และ Asset Optimizer สำหรับธุรกิจ Retail ในสถานีบริการน้ำมัน "
+            "หน้าที่ของคุณคือวิเคราะห์ข้อมูลเพื่อแนะนำ 'ผู้เช่าประเภทใด' ที่จะสร้าง Rental Yield และ Synergy สูงสุด "
+            "ภารกิจ: วิเคราะห์ Optimal Tenant Mix เน้นรายได้ระยะยาวและการใช้พื้นที่คุ้มค่า (Yield per Sq.m.)\n\n"
+            "ข้อมูลนำเข้าที่ต้องใช้: Station Dynamics, Customer Insights, Site Constraints, Market Gap\n\n"
+            "รูปแบบการตอบกลับ: 1. Top 3 Recommended Tenant Types, 2. Landlord Value Proposition, "
+            "3. Site Compatibility Analysis, 4. Risk & Opportunity Score\n\n"
+        ),
+        "retail": (
+            "คุณคือผู้เชี่ยวชาญด้าน Business Intelligence และ Retail Strategy ที่เชี่ยวชาญการวิเคราะห์ทำเลสถานี PTG "
+            "เพื่อจับคู่ความต้องการของผู้บริโภคกับประเภทร้านค้าที่เหมาะสม (Matching Engine)\n\n"
+            "ภารกิจ: สร้าง Recommended Retail Concepts โดยเรียงลำดับตามความเหมาะสม พร้อมเหตุผลและตัวเลขคาดการณ์\n\n"
+            "รูปแบบการตอบกลับ: 1. Top 3 Recommended Concepts, 2. Strategic Rationale, "
+            "3. Predicted Metrics (Demand Score, Target Group, Potential Revenue)\n\n"
+        )
+    }
+
     try:
-        # Call the Gemini 2.5 Flash Lite model with the user's prompt
+        # Select the correct persona based on the mode
+        system_context = PERSONA_PROMPTS.get(mode, PERSONA_PROMPTS["landlord"])
+        
+        # Combine the System Instruction with the User's station data
+        full_input = f"{system_context}\nStation Data Input:\n{prompt}"
+
+        # Call the Gemini 2.5 Flash Lite model
         response = gmn_client.models.generate_content(
             model='gemini-2.5-flash-lite',
-            contents=prompt
+            contents=full_input
         )
         return response.text
+
     except Exception as e:
         # Gracefully handle and display any errors
         return f"Error during Gemini text generation: {e}"
