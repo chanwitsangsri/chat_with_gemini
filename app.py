@@ -4,7 +4,7 @@ from google import genai
 # 1. ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="PTG Retail Platform", layout="wide")
 
-# ปรับปรุง UI ตาม Color Theme ใหม่: Primary (#96c93e), Secondary (#1bac4f), Background (light gray)
+# ปรับปรุง UI: พื้นหลังส่วนหัวสีเขียว ฟอนต์สีขาว และใช้สีตาม Brand Identity
 st.markdown("""
     <style>
     /* พื้นหลังหลักของแอป (Light Gray) */
@@ -12,31 +12,38 @@ st.markdown("""
         background-color: #f8f9fa;
     }
 
-    /* Sidebar Customization (White Background + Secondary Border) */
+    /* ปรับแต่งส่วนหัว (Header Area) ให้พื้นหลังสีเขียว ฟอนต์สีขาว */
+    .header-container {
+        background-color: #1bac4f; /* Secondary Green */
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        border-bottom: 5px solid #96c93e; /* Primary Green Accent */
+    }
+    
+    .header-container h1 {
+        color: white !important;
+        margin: 0;
+        border: none !important;
+    }
+
+    /* Sidebar Customization */
     [data-testid="stSidebar"] {
         background-color: #ffffff;
         border-right: 1px solid #e0e0e0;
     }
 
-    /* หัวข้อหลัก (Secondary Color) */
-    h1 {
-        color: #1bac4f;
-        font-weight: 700;
-        border-bottom: 3px solid #96c93e; /* Primary Color Underline */
-        padding-bottom: 10px;
-    }
-
-    /* ปรับแต่งส่วนของ Chat Message ให้เป็นลักษณะ Cards (White with Soft Shadow) */
+    /* ปรับแต่งส่วนของ Chat Message เป็น Cards พร้อม Soft Shadow */
     [data-testid="stChatMessage"] {
         background-color: #ffffff !important;
         border-radius: 12px !important;
         padding: 20px !important;
         margin-bottom: 15px !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important; /* Soft Shadow */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
         border: 1px solid #f0f0f0 !important;
     }
 
-    /* ปรับแต่งปุ่ม (Secondary Color) */
+    /* ปรับแต่งปุ่ม (Secondary Green) */
     div.stButton > button:first-child {
         background-color: #1bac4f;
         color: white;
@@ -44,14 +51,15 @@ st.markdown("""
         border: none;
     }
     
-    /* ปรับแต่งสี Radio Selection และ Input Focus (Primary Color) */
+    /* สีของ Radio Selection และ Input Focus (Primary Green) */
     .st-bd, [data-testid="stChatInput"] {
         border-color: #96c93e !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title('⛽ PTG Retail Platform: AI Landlord & Retail Advisor')
+# ส่วนหัวแบบ Custom (พื้นหลังเขียว ฟอนต์ขาว)
+st.markdown('<div class="header-container"><h1>⛽ PTG Retail Platform: AI Landlord & Retail Advisor</h1></div>', unsafe_allow_html=True)
 
 # --- 2. Database จำลอง (10 สถานี & 5 ธุรกิจ) ---
 
