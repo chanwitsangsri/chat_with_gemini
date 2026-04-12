@@ -88,13 +88,29 @@ def get_answer(user_input: str, mode: str) -> str:
             "รูปแบบการตอบ:\n1. Top 3 Recommended Concepts\n2. Strategic Rationale\n"
             "3. Predicted Metrics (Demand Score, Target Group, Daily Revenue)"
         )
-        
+
     try:
-        # ── Compatible with both google-generativeai 0.x and 0.8+ ──
-        import google.genai as genai
+        # ── Try new google-genai SDK first (>= 0.8) ──
+        from google import genai as genai_new
+        client = genai_new.Client(api_key=api_key)
+        full_prompt = (
+            f"[System] {system_instruction}\n\n"
+            f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}"
+        )
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=full_prompt,
+        )
+        return response.text
+    except Exception:
+        pass
+
+    try:
+        # ── Fallback: classic google-generativeai SDK ──
+        import google.generativeai as genai
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
+            model_name="gemini-2.0-flash",
             system_instruction=system_instruction,
         )
         response = model.generate_content(
@@ -102,22 +118,6 @@ def get_answer(user_input: str, mode: str) -> str:
             generation_config={"temperature": 0.2},
         )
         return response.text
-    except AttributeError:
-        # ── Fallback for google-generativeai >= 0.8 (new Client API) ──
-        try:
-            from google import genai as genai_new
-            client = genai_new.Client(api_key=api_key)
-            full_prompt = (
-                f"[System] {system_instruction}\n\n"
-                f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}"
-            )
-            response = client.models.generate_content(
-                model="gemini-1.5-flash",
-                contents=full_prompt,
-            )
-            return response.text
-        except Exception as e2:
-            return f"⚠️ AI Error: {e2}"
     except Exception as e:
         return f"⚠️ AI Error: {e}"
 
@@ -333,13 +333,25 @@ header[data-testid="stHeader"] { background: transparent !important; }
     border-radius: 50% !important;
 }
 
-/* ── Streamlit chat input – keep it light & readable ── */
-[data-testid="stBottom"] {
+/* ── Kill the dark bottom bar completely ── */
+[data-testid="stBottom"],
+[data-testid="stBottom"] > div,
+.stBottom, .st-emotion-cache-1gulkj5,
+section[data-testid="stBottom"] {
     background: var(--cream) !important;
+    background-color: var(--cream) !important;
     border-top: 1px solid var(--border) !important;
-    padding: 0.75rem 1rem !important;
+    box-shadow: none !important;
+}
+/* Also target any fixed/sticky footer Streamlit might inject */
+footer, [data-testid="InputInstructions"] {
+    background: var(--cream) !important;
+    color: var(--text-muted) !important;
 }
 [data-testid="stChatInput"] {
+    background: var(--cream) !important;
+}
+[data-testid="stChatInput"] > div {
     background: var(--cream) !important;
 }
 [data-testid="stChatInput"] textarea {
