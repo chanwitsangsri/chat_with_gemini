@@ -88,10 +88,10 @@ def get_answer(user_input: str, mode: str) -> str:
             "รูปแบบการตอบ:\n1. Top 3 Recommended Concepts\n2. Strategic Rationale\n"
             "3. Predicted Metrics (Demand Score, Target Group, Daily Revenue)"
         )
-
+        
     try:
         # ── Compatible with both google-generativeai 0.x and 0.8+ ──
-        import google.generativeai as genai
+        import google.genai as genai
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
