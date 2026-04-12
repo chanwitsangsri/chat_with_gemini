@@ -1,34 +1,49 @@
-
-
 import streamlit as st
 from google import genai
 
 # 1. ตั้งค่าหน้าเว็บและธีมสี PTG
 st.set_page_config(page_title="PTG Retail Platform", layout="wide")
 
-# Custom CSS สำหรับปรับแต่งสีให้เป็น PTG (เขียว-เหลือง)
+# ปรับปรุงสีตาม Brand Identity: Primary (#96c93e), Secondary (#1bac4f)
 st.markdown("""
     <style>
-    /* ส่วนหัวและพื้นหลัง Sidebar */
+    /* พื้นหลังหลักของแอป (Light Gray) */
+    .stApp {
+        background-color: #f8f9fa;
+    }
+
+    /* Sidebar Customization */
     [data-testid="stSidebar"] {
-        background-color: #f0f2f6;
-        border-right: 3px solid #00A859;
+        background-color: white;
+        border-right: 1px solid #e0e0e0;
     }
-    /* ปรับแต่งสีปุ่ม Streamlit */
-    div.stButton > button:first-child {
-        background-color: #00A859;
-        color: white;
-        border-radius: 5px;
-    }
-    /* สี Header */
+
+    /* หัวข้อหลัก */
     h1 {
-        color: #00A859;
-        border-bottom: 2px solid #FFD100;
-        padding-bottom: 10px;
+        color: #1bac4f;
+        font-weight: 700;
     }
-    /* Chat Input Focus */
-    .stChatInput:focus-within {
-        border-color: #00A859 !important;
+
+    /* ปรับแต่งส่วนของ Chat Message ให้เป็นลักษณะ Cards */
+    [data-testid="stChatMessage"] {
+        background-color: white !important;
+        border-radius: 10px !important;
+        padding: 20px !important;
+        margin-bottom: 15px !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important; /* Soft Shadow */
+        border: 1px solid #f0f0f0 !important;
+    }
+
+    /* ปรับแต่งปุ่มและ Radio Button */
+    div.stButton > button:first-child {
+        background-color: #1bac4f;
+        color: white;
+        border: none;
+    }
+    
+    /* สีของ Radio Selection */
+    .st-bd {
+        color: #96c93e !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -67,9 +82,13 @@ except KeyError:
     st.error("กรุณาตั้งค่า API Key ใน secrets.toml")
     st.stop()
 
-st.sidebar.header("⚙️ AI Persona Settings")
-mode_selection = st.sidebar.radio("เลือกมุมมองการวิเคราะห์:", ("Landlord View", "Retailer View"))
-current_mode = "landlord" if "Landlord" in mode_selection else "retail"
+st.sidebar:
+    st.markdown(f'<h3 style="color: #1bac4f;">⚙️ AI Persona Settings</h3>', unsafe_allow_html=True)
+    mode_selection = st.radio(
+        "เลือกมุมมองการวิเคราะห์:",
+        ("Landlord View", "Retailer View")
+    )
+    current_mode = "landlord" if "Landlord" in mode_selection else "retail"
 
 def get_answer(user_input, mode):
     # ค้นหาข้อมูลสถานีจากคำถาม
