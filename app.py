@@ -1,67 +1,82 @@
 import streamlit as st
 from google import genai
 
-# 1. ตั้งค่าหน้าเว็บ
+# 1. Page Configuration & Theme Styling
 st.set_page_config(page_title="PTG Retail Platform", layout="wide")
 
-# ปรับปรุง UI: พื้นหลังส่วนหัวสีเขียว ฟอนต์สีขาว และใช้สีตาม Brand Identity
+# Custom CSS เพื่อปรับแต่ง UI ให้ตรงตามภาพ Reference
 st.markdown("""
     <style>
-    /* พื้นหลังหลักของแอป (Light Gray) */
+    /* พื้นหลังหลัก (Light Gray) */
     .stApp {
-        background-color: #f8f9fa;
-    }
-
-    /* ปรับแต่งส่วนหัว (Header Area) ให้พื้นหลังสีเขียว ฟอนต์สีขาว */
-    .header-container {
-        background-color: #1bac4f; /* Secondary Green */
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 25px;
-        border-bottom: 5px solid #96c93e; /* Primary Green Accent */
-    }
-    
-    .header-container h1 {
-        color: white !important;
-        margin: 0;
-        border: none !important;
+        background-color: #f9f9f9;
     }
 
     /* Sidebar Customization */
     [data-testid="stSidebar"] {
         background-color: #ffffff;
-        border-right: 1px solid #e0e0e0;
+        border-right: 1px solid #e5e7eb;
     }
 
-    /* ปรับแต่งส่วนของ Chat Message เป็น Cards พร้อม Soft Shadow */
+    /* หัวข้อหลักแบบ Serif พรีเมียม */
+    .main-title {
+        font-family: 'serif';
+        color: #111827;
+        font-size: 3rem;
+        margin-bottom: 10px;
+    }
+
+    /* สไตล์การ์ดสีเขียวเข้ม (Projected Q4 Shift) */
+    .green-card {
+        background-color: #4c6a23;
+        color: #ffffff;
+        padding: 30px;
+        border-radius: 24px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+
+    /* ปุ่มภายในการ์ดสีเขียว */
+    .green-card button {
+        background-color: #96c93e;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 30px;
+        color: #4c6a23;
+        font-weight: bold;
+        width: 100%;
+        cursor: pointer;
+    }
+
+    /* กล่องแชทแบบการ์ดขาวพร้อม Soft Shadow */
     [data-testid="stChatMessage"] {
         background-color: #ffffff !important;
-        border-radius: 12px !important;
-        padding: 20px !important;
-        margin-bottom: 15px !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
-        border: 1px solid #f0f0f0 !important;
+        border-radius: 16px !important;
+        padding: 24px !important;
+        margin-bottom: 20px !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid #f3f4f6 !important;
     }
 
-    /* ปรับแต่งปุ่ม (Secondary Green) */
-    div.stButton > button:first-child {
-        background-color: #1bac4f;
-        color: white;
-        border-radius: 8px;
-        border: none;
+    /* ปรับปรุง Input แชทให้โค้งมน */
+    .stChatInputContainer {
+        padding: 10px !important;
+        background-color: #ffffff !important;
+        border-radius: 50px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
     }
     
-    /* สีของ Radio Selection และ Input Focus (Primary Green) */
-    .st-bd, [data-testid="stChatInput"] {
-        border-color: #96c93e !important;
+    /* สีของ Radio Selection และปุ่มหลัก */
+    .st-bd, [data-testid="stChatInput"] button {
+        background-color: #4c6a23 !important;
+        color: white !important;
     }
+    
+    .st-bd { color: #4c6a23 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# ส่วนหัวแบบ Custom (พื้นหลังเขียว ฟอนต์ขาว)
-st.markdown('<div class="header-container"><h1>⛽ PTG Retail Platform: AI Landlord & Retail Advisor</h1></div>', unsafe_allow_html=True)
-
-# --- 2. Database จำลอง (10 สถานี & 5 ธุรกิจ) ---
+# --- 2. Dummy Data (10 Stations & 5 Business Types) ---
 
 BUSINESS_TYPES = {
     "Artisan Café / Coffee": "เน้นพรีเมียม, Co-working space, เหมาะกับกลุ่มคนทำงานและนักเดินทางที่จอดพักนาน",
@@ -84,83 +99,88 @@ STATION_DATABASE = {
     "kanchanaburi": {"name": "PTG Kanchanaburi", "traffic": "6,500 v/day", "max_card": "Nature Lovers", "gap": "Boutique Apparel"}
 }
 
-# --- 3. AI Engine ---
+# --- 3. AI Engine Configuration ---
 
 try:
     gemini_api_key = st.secrets["gemini_api_key"]
     gmn_client = genai.Client(api_key=gemini_api_key)
 except KeyError:
-    st.error("กรุณาตั้งค่า API Key ใน secrets.toml ก่อนใช้งาน")
+    st.error("Error: Please set 'gemini_api_key' in your secrets.toml file.")
     st.stop()
 
-# Sidebar สำหรับตั้งค่า Persona
+# Sidebar Setup
 with st.sidebar:
-    st.markdown(f'<h3 style="color: #1bac4f;">⚙️ AI Persona Settings</h3>', unsafe_allow_html=True)
-    mode_selection = st.radio("เลือกมุมมองการวิเคราะห์:", ("Landlord View", "Retailer View"))
+    st.markdown("<h2 style='color: #4c6a23;'>PTG Platform</h2>", unsafe_allow_html=True)
+    mode_selection = st.radio("Select Analysis Persona:", ("Landlord View", "Retailer View"))
     current_mode = "landlord" if "Landlord" in mode_selection else "retail"
 
 def get_answer(user_input, mode):
-    # ค้นหาข้อมูลสถานีจากคำถาม
-    found_station = next((v for k, v in STATION_DATABASE.items() if k in user_input.lower()), "General PTG Context")
-    
-    # ดึงรายละเอียดธุรกิจเพื่อเป็นแนวทางให้ AI
+    # ค้นหาข้อมูลสถานี
+    found_station = next((v for k, v in STATION_DATABASE.items() if k in user_input.lower()), "General PTG Network")
     business_context = "\n".join([f"- {k}: {v}" for k, v in BUSINESS_TYPES.items()])
     
-    prompt_context = f"Station Data Input: {found_station}\n\nValid Business Categories: \n{business_context}"
-
-    # แยก Persona ตาม Requirement
     if mode == "landlord":
         system_instruction = (
-            "คุณคือ Leasing Strategy Manager และ Asset Optimizer ของ PTG. "
-            "ภารกิจ: วิเคราะห์ Optimal Tenant Mix เพื่อสร้าง Rental Yield และ Synergy สูงสุด (Yield per Sq.m.).\n"
-            "กฎการตอบ: ให้ตอบตามรูปแบบดังนี้เท่านั้น:\n"
-            "1. Top 3 Recommended Tenant Types: (เลือกจาก Business Categories ที่กำหนดให้)\n"
-            "2. Landlord Value Proposition: (อธิบายความคุ้มค่า เช่น ดึง Traffic ช่วง Off-peak หรือสัญญาเช่าระยะยาว)\n"
-            "3. Site Compatibility Analysis: (วิเคราะห์ความเหมาะสมของพื้นที่และสาธารณูปโภค)\n"
-            "4. Risk & Opportunity Score: (ระบุ Yield Potential, Traffic Synergy, และ Churn Risk เป็น High/Medium/Low)"
+            "คุณคือ Leasing Strategy Manager ของ PTG. ภารกิจคือวิเคราะห์ Optimal Tenant Mix เพื่อสร้าง Yield per Sq.m. สูงสุด.\n"
+            "รูปแบบการตอบ:\n1. Top 3 Recommended Tenant Types\n2. Landlord Value Proposition\n3. Site Compatibility Analysis\n4. Risk & Opportunity Score"
         )
     else:
         system_instruction = (
-            "คุณคือ Business Intelligence และ Retail Strategy Expert ของ PTG. "
-            "ภารกิจ: เป็น Matching Engine จับคู่ Demand ของผู้บริโภคกับร้านค้าที่เหมาะสมเพื่อลดความเสี่ยงการเปิดร้านผิดประเภท.\n"
-            "กฎการตอบ: ให้ตอบตามรูปแบบดังนี้เท่านั้น:\n"
-            "1. Top 3 Recommended Concepts: (เรียงตามความเหมาะสมจากข้อมูล Pattern การใช้จ่าย)\n"
-            "2. Strategic Rationale: (เหตุผลเชิงกลยุทธ์ เช่น Morning Traffic สูงเหมาะกับอาหารเช้า)\n"
-            "3. Predicted Metrics (Estimate):\n"
-            "   - Demand Score: (1-10)\n"
-            "   - Target Group: (ระบุกลุ่มเป้าหมายหลัก)\n"
-            "   - Potential Daily Revenue: (ประมาณการรายได้ต่อวันเป็นช่วงตัวเลข)"
+            "คุณคือ Business Intelligence Expert ของ PTG. ภารกิจคือเป็น Matching Engine แนะนำร้านค้าที่เหมาะกับ Demand.\n"
+            "รูปแบบการตอบ:\n1. Top 3 Recommended Concepts\n2. Strategic Rationale\n3. Predicted Metrics (Demand Score, Target Group, Daily Revenue)"
         )
 
     try:
         response = gmn_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"{prompt_context}\n\nUser Question: {user_input}",
-            config=genai.types.GenerateContentConfig(
-                system_instruction=system_instruction, 
-                temperature=0.3 
-            )
+            contents=f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}",
+            config=genai.types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.3)
         )
         return response.text
     except Exception as e:
-        return f"Error: {e}"
+        return f"AI Error: {e}"
 
-# --- 4. UI Chat Interface ---
+# --- 4. Main UI Layout ---
+
+st.markdown('<h1 class="main-title">AI Retailer Advisor</h1>', unsafe_allow_html=True)
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.markdown("""
+    <div style="background-color: white; padding: 40px; border-radius: 24px; border: 1px solid #f3f4f6; margin-bottom: 20px;">
+        <span style="color: #4c6a23; font-weight: bold; background: #f0fdf4; padding: 5px 15px; border-radius: 20px;">● LIVE SYSTEM ACTIVE</span>
+        <h2 style="font-family: serif; font-size: 2.2rem; margin-top: 20px;">Ready to optimize your <i style="color: #4c6a23;">Retail Value</i> with PTG Data.</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="green-card">
+        <h3 style="margin-top:0;">Platform Insight</h3>
+        <p style="opacity: 0.9; font-size: 0.9rem;">Current mode: <b>{mode_selection}</b>. AI is processing internal fuel and Max Card transaction data for insights.</p>
+        <button>Update Forecast</button>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<h3>Strategic Recommendations</h3>", unsafe_allow_html=True)
+
+# --- 5. Chat Interface ---
 
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "สวัสดีครับ! ผม AI Advisor ประจำแพลตฟอร์ม PTG วันนี้ต้องการข้อมูลวิเคราะห์พื้นที่หรือหาทำเลเปิดร้านดีครับ?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "สวัสดีครับ! ผม AI Advisor พร้อมช่วยคุณวิเคราะห์ข้อมูลเชิงลึกของสถานี PTG แล้วครับ"}]
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if user_query := st.chat_input("ตัวอย่าง: ขายกาแฟปั๊มไหนดี? หรือ PTG Phuket ควรขายอะไร?"):
-    st.session_state.messages.append({"role": "user", "content": user_query})
+if prompt := st.chat_input("ตัวอย่าง: ขายกาแฟปั๊มไหนดี? หรือ PTG Phuket ควรขายอะไร?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(user_query)
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("กำลังวิเคราะห์ข้อมูลด้วย AI..."):
-            answer = get_answer(user_query, current_mode)
-            st.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
+        with st.spinner("Analyzing site data..."):
+            response = get_answer(prompt, current_mode)
+            st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
