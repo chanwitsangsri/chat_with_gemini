@@ -94,7 +94,7 @@ def get_answer(user_input: str, mode: str) -> str:
         import google.genai as genai
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-2.5-flash",
             system_instruction=system_instruction,
         )
         response = model.generate_content(
