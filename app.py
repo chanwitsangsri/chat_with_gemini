@@ -99,7 +99,7 @@ def get_answer(user_input: str, mode: str) -> str:
             f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}"
         )
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=full_prompt,
             config=genai_types.GenerateContentConfig(temperature=0.2),
         )
