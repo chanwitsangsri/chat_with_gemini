@@ -1,10 +1,10 @@
 import streamlit as st
 from google import genai
 
-# 1. ตั้งค่าหน้าเว็บและธีมสี PTG
+# 1. ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="PTG Retail Platform", layout="wide")
 
-# ปรับปรุงสีตาม Brand Identity: Primary (#96c93e), Secondary (#1bac4f)
+# ปรับปรุง UI ตาม Color Theme ใหม่: Primary (#96c93e), Secondary (#1bac4f), Background (light gray)
 st.markdown("""
     <style>
     /* พื้นหลังหลักของแอป (Light Gray) */
@@ -12,38 +12,41 @@ st.markdown("""
         background-color: #f8f9fa;
     }
 
-    /* Sidebar Customization */
+    /* Sidebar Customization (White Background + Secondary Border) */
     [data-testid="stSidebar"] {
-        background-color: white;
+        background-color: #ffffff;
         border-right: 1px solid #e0e0e0;
     }
 
-    /* หัวข้อหลัก */
+    /* หัวข้อหลัก (Secondary Color) */
     h1 {
         color: #1bac4f;
         font-weight: 700;
+        border-bottom: 3px solid #96c93e; /* Primary Color Underline */
+        padding-bottom: 10px;
     }
 
-    /* ปรับแต่งส่วนของ Chat Message ให้เป็นลักษณะ Cards */
+    /* ปรับแต่งส่วนของ Chat Message ให้เป็นลักษณะ Cards (White with Soft Shadow) */
     [data-testid="stChatMessage"] {
-        background-color: white !important;
-        border-radius: 10px !important;
+        background-color: #ffffff !important;
+        border-radius: 12px !important;
         padding: 20px !important;
         margin-bottom: 15px !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important; /* Soft Shadow */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important; /* Soft Shadow */
         border: 1px solid #f0f0f0 !important;
     }
 
-    /* ปรับแต่งปุ่มและ Radio Button */
+    /* ปรับแต่งปุ่ม (Secondary Color) */
     div.stButton > button:first-child {
         background-color: #1bac4f;
         color: white;
+        border-radius: 8px;
         border: none;
     }
     
-    /* สีของ Radio Selection */
-    .st-bd {
-        color: #96c93e !important;
+    /* ปรับแต่งสี Radio Selection และ Input Focus (Primary Color) */
+    .st-bd, [data-testid="stChatInput"] {
+        border-color: #96c93e !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -79,15 +82,13 @@ try:
     gemini_api_key = st.secrets["gemini_api_key"]
     gmn_client = genai.Client(api_key=gemini_api_key)
 except KeyError:
-    st.error("กรุณาตั้งค่า API Key ใน secrets.toml")
+    st.error("กรุณาตั้งค่า API Key ใน secrets.toml ก่อนใช้งาน")
     st.stop()
 
-st.sidebar:
+# Sidebar สำหรับตั้งค่า Persona
+with st.sidebar:
     st.markdown(f'<h3 style="color: #1bac4f;">⚙️ AI Persona Settings</h3>', unsafe_allow_html=True)
-    mode_selection = st.radio(
-        "เลือกมุมมองการวิเคราะห์:",
-        ("Landlord View", "Retailer View")
-    )
+    mode_selection = st.radio("เลือกมุมมองการวิเคราะห์:", ("Landlord View", "Retailer View"))
     current_mode = "landlord" if "Landlord" in mode_selection else "retail"
 
 def get_answer(user_input, mode):
@@ -99,7 +100,7 @@ def get_answer(user_input, mode):
     
     prompt_context = f"Station Data Input: {found_station}\n\nValid Business Categories: \n{business_context}"
 
-    # แยก Persona ตาม Requirement ที่คุณกำหนด
+    # แยก Persona ตาม Requirement
     if mode == "landlord":
         system_instruction = (
             "คุณคือ Leasing Strategy Manager และ Asset Optimizer ของ PTG. "
@@ -129,7 +130,7 @@ def get_answer(user_input, mode):
             contents=f"{prompt_context}\n\nUser Question: {user_input}",
             config=genai.types.GenerateContentConfig(
                 system_instruction=system_instruction, 
-                temperature=0.3 # ใช้ Temp ต่ำเพื่อให้ AI ยึดตาม Data และไม่คิดเอง (ตามคำสั่งใน Saved Info)
+                temperature=0.3 
             )
         )
         return response.text
