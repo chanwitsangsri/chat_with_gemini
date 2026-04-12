@@ -1,6 +1,4 @@
-
 import streamlit as st
-from google import genai
 
 # ─────────────────────────────────────────────
 # PAGE CONFIG
@@ -65,12 +63,11 @@ RETAILER_CARDS = [
 # AI ENGINE
 # ─────────────────────────────────────────────
 def get_answer(user_input: str, mode: str) -> str:
-    try:
-        api_key = st.secrets["gemini_api_key"]
-    except KeyError:
+    # ── Get API key ──
+    api_key = st.secrets.get("gemini_api_key", "")
+    if not api_key:
         return "⚠️ กรุณาตั้งค่า `gemini_api_key` ใน secrets.toml ก่อนใช้งาน"
 
-    genai.configure(api_key=api_key)
     found_station = next(
         (v for k, v in STATION_DATABASE.items() if k in user_input.lower()),
         "General PTG Network",
@@ -93,17 +90,36 @@ def get_answer(user_input: str, mode: str) -> str:
         )
 
     try:
+        # ── Compatible with both google-generativeai 0.x and 0.8+ ──
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             system_instruction=system_instruction,
         )
         response = model.generate_content(
             f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}",
-            generation_config=genai.GenerationConfig(temperature=0.2),
+            generation_config={"temperature": 0.2},
         )
         return response.text
+    except AttributeError:
+        # ── Fallback for google-generativeai >= 0.8 (new Client API) ──
+        try:
+            from google import genai as genai_new
+            client = genai_new.Client(api_key=api_key)
+            full_prompt = (
+                f"[System] {system_instruction}\n\n"
+                f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}"
+            )
+            response = client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=full_prompt,
+            )
+            return response.text
+        except Exception as e2:
+            return f"⚠️ AI Error: {e2}"
     except Exception as e:
-        return f"AI Error: {e}"
+        return f"⚠️ AI Error: {e}"
 
 # ─────────────────────────────────────────────
 # GLOBAL CSS
@@ -122,6 +138,7 @@ st.markdown("""
     --cream:        #f5f4ef;
     --card-bg:      #ffffff;
     --text-primary: #1a1a1a;
+    --text-secondary: #374151;
     --text-muted:   #6b7280;
     --border:       #e5e7eb;
     --hero-bg:      #f9f8f4;
@@ -131,6 +148,15 @@ st.markdown("""
 html, body, [data-testid="stAppViewContainer"] {
     background: var(--cream) !important;
     font-family: 'DM Sans', sans-serif !important;
+    color: var(--text-primary) !important;
+}
+
+/* Force all text in main area to be readable dark */
+[data-testid="stMainBlockContainer"] p,
+[data-testid="stMainBlockContainer"] span,
+[data-testid="stMainBlockContainer"] div,
+[data-testid="stMarkdownContainer"] p {
+    color: var(--text-primary) !important;
 }
 [data-testid="stSidebar"] {
     background: #ffffff !important;
@@ -271,8 +297,43 @@ header[data-testid="stHeader"] { background: transparent !important; }
     background: transparent !important;
 }
 
+/* ── Chat bubbles ── */
+/* Assistant bubble */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
+    background: #ffffff !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
+    padding: 1rem 1.2rem !important;
+    margin-bottom: 0.6rem !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+}
+/* User bubble */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+    background: #edf5e5 !important;
+    border: 1px solid #c8d8b8 !important;
+    border-radius: 16px !important;
+    padding: 1rem 1.2rem !important;
+    margin-bottom: 0.6rem !important;
+}
+/* Text inside bubbles must be dark */
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] span {
+    color: #1a1a1a !important;
+    font-size: 0.9rem !important;
+    line-height: 1.65 !important;
+}
+/* Avatar icons */
+[data-testid="stChatMessageAvatarAssistant"] {
+    background: var(--green-dark) !important;
+    border-radius: 50% !important;
+}
+[data-testid="stChatMessageAvatarUser"] {
+    background: var(--green-accent) !important;
+    border-radius: 50% !important;
+}
+
 /* ── Streamlit chat input – keep it light & readable ── */
-/* Fix the dark bottom bar Streamlit adds */
 [data-testid="stBottom"] {
     background: var(--cream) !important;
     border-top: 1px solid var(--border) !important;
@@ -299,7 +360,6 @@ header[data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stChatInput"] textarea::placeholder {
     color: #9ca3af !important;
 }
-/* Send button */
 [data-testid="stChatInput"] button {
     background: var(--green-dark) !important;
     border-radius: 50% !important;
