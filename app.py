@@ -85,8 +85,16 @@ def get_answer(user_input: str, mode: str) -> str:
         system_instruction = (
             "คุณคือ Business Intelligence Expert ของ PTG. ตอบให้ตรงประเด็นตาม Data ที่ให้เท่านั้น. "
             "ภารกิจคือเป็น Matching Engine แนะนำร้านค้าที่เหมาะกับ Demand เพื่อลดความเสี่ยงการลงทุน.\n"
-            "รูปแบบการตอบ:\n1. Top 3 Recommended Concepts\n2. Strategic Rationale\n"
-            "3. Predicted Metrics (Demand Score, Target Group, Daily Revenue)"
+            "สำคัญมาก: ใน Top 3 Recommended Concepts ต้องระบุชื่อ Station และข้อมูลเฉพาะของ Station นั้นด้วยเสมอ เช่น traffic, max_card, gap, yield\n"
+            "รูปแบบการตอบ (ทำตามนี้เป๊ะๆ):\n"
+            "## 🏪 Top 3 Recommended Concepts สำหรับ [Station Name]\n"
+            "แต่ละ Concept ต้องมี: ชื่อ Concept | เหตุผลที่เหมาะกับ Station นี้ | ข้อมูล Station ที่สนับสนุน\n\n"
+            "## 📊 Strategic Rationale\n"
+            "อธิบายว่าทำไม Station นี้ถึงเหมาะกับ Concepts เหล่านี้ โดยอ้างอิง traffic และ max_card\n\n"
+            "## 📈 Predicted Metrics\n"
+            "| Concept | Demand Score | Target Group | Est. Daily Revenue |\n"
+            "|---------|-------------|--------------|--------------------|\n"
+            "ใส่ตัวเลขประมาณการที่สมเหตุสมผลตาม traffic ของ Station"
         )
 
     try:
@@ -325,55 +333,65 @@ header[data-testid="stHeader"] { background: transparent !important; }
 
 /* ── Kill the dark bottom bar & black border completely ── */
 [data-testid="stBottom"],
-[data-testid="stBottom"] > div,
-[data-testid="stBottom"] > div > div,
-.stBottom,
-section[data-testid="stBottom"] {
+[data-testid="stBottom"] *,
+section[data-testid="stBottom"],
+.stBottom {
     background: var(--cream) !important;
     background-color: var(--cream) !important;
-    border-top: 1px solid var(--border) !important;
+    border-color: transparent !important;
     box-shadow: none !important;
     outline: none !important;
 }
-/* Kill black border Streamlit draws around the chat input wrapper */
+[data-testid="stBottom"] {
+    border-top: 1px solid var(--border) !important;
+}
+
+/* Kill every layer of the chat input wrapper - including the black rounded frame */
 [data-testid="stChatInput"],
-[data-testid="stChatInput"] > div,
-[data-testid="stChatInput"] > div > div {
+[data-testid="stChatInput"] *:not(textarea):not(button):not(svg):not(path) {
     background: var(--cream) !important;
     background-color: var(--cream) !important;
     border: none !important;
+    border-color: transparent !important;
     outline: none !important;
     box-shadow: none !important;
+    border-radius: 0 !important;
 }
+
 footer, [data-testid="InputInstructions"] {
     background: var(--cream) !important;
     color: var(--text-muted) !important;
 }
+
+/* Restore only the textarea itself */
 [data-testid="stChatInput"] textarea {
     border-radius: 30px !important;
     border: 1.5px solid #c8d8b8 !important;
-    padding: 12px 20px !important;
+    padding: 12px 24px !important;
     font-family: 'DM Sans', sans-serif !important;
-    font-size: .88rem !important;
+    font-size: .9rem !important;
     background: #ffffff !important;
     color: var(--text-primary) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07) !important;
+    box-shadow: 0 2px 12px rgba(62,107,34,0.10) !important;
     outline: none !important;
+    transition: border-color .2s, box-shadow .2s !important;
 }
 [data-testid="stChatInput"] textarea:focus {
     border-color: var(--green-accent) !important;
-    outline: none !important;
     box-shadow: 0 0 0 3px rgba(90,140,47,0.15) !important;
 }
 [data-testid="stChatInput"] textarea::placeholder {
-    color: #9ca3af !important;
+    color: #adb5bd !important;
+    font-style: italic !important;
 }
+
+/* Restore the send button */
 [data-testid="stChatInput"] button {
     background: var(--green-dark) !important;
     border-radius: 50% !important;
     color: #fff !important;
     border: none !important;
-    box-shadow: none !important;
+    box-shadow: 0 2px 8px rgba(45,74,26,0.25) !important;
 }
 
 /* ── Mode toggle buttons ── */
