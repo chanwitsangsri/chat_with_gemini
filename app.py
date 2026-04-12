@@ -1,10 +1,10 @@
 import streamlit as st
 from google import genai
 
-# 1. Page Configuration & Theme Styling
+# 1. ตั้งค่าหน้าเว็บและธีมสี PTG
 st.set_page_config(page_title="PTG Retail Platform", layout="wide")
 
-# Custom CSS เพื่อปรับแต่ง UI ให้ตรงตามภาพ Reference
+# Custom CSS เพื่อปรับแต่ง UI ให้มีความสวยงาม (Premium look with Cards & Shadows)
 st.markdown("""
     <style>
     /* พื้นหลังหลัก (Light Gray) */
