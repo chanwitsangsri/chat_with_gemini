@@ -271,14 +271,39 @@ header[data-testid="stHeader"] { background: transparent !important; }
     background: transparent !important;
 }
 
-/* ── Streamlit chat input ── */
+/* ── Streamlit chat input – keep it light & readable ── */
+/* Fix the dark bottom bar Streamlit adds */
+[data-testid="stBottom"] {
+    background: var(--cream) !important;
+    border-top: 1px solid var(--border) !important;
+    padding: 0.75rem 1rem !important;
+}
+[data-testid="stChatInput"] {
+    background: var(--cream) !important;
+}
 [data-testid="stChatInput"] textarea {
     border-radius: 30px !important;
-    border: 1px solid var(--border) !important;
+    border: 1.5px solid #c8d8b8 !important;
     padding: 12px 20px !important;
     font-family: 'DM Sans', sans-serif !important;
     font-size: .88rem !important;
-    background: var(--cream) !important;
+    background: #ffffff !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+}
+[data-testid="stChatInput"] textarea:focus {
+    border-color: var(--green-accent) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(90,140,47,0.15) !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #9ca3af !important;
+}
+/* Send button */
+[data-testid="stChatInput"] button {
+    background: var(--green-dark) !important;
+    border-radius: 50% !important;
+    color: #fff !important;
 }
 
 /* ── Mode toggle buttons ── */
@@ -439,22 +464,17 @@ for card in cards:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Chat section ─────────────────────────────
-st.markdown('<div class="chat-wrap">', unsafe_allow_html=True)
+st.markdown('<div class="section-heading" style="margin-top:1.5rem;">Ask AI Advisor</div>', unsafe_allow_html=True)
+
+# Suggestion chips
+chip_html = "".join(
+    f'<span class="suggestion-chip">{s}</span>' for s in suggestions
+)
+st.markdown(f'<div class="suggestion-row" style="margin-bottom:1rem;">{chip_html}</div>', unsafe_allow_html=True)
 
 for msg in msgs():
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-
-# Suggestion chips (cosmetic — clicking copies text only via JS is not straightforward in Streamlit)
-chip_html = "".join(
-    f'<span class="suggestion-chip">{s}</span>' for s in suggestions
-)
-st.markdown(
-    f'<div class="suggestion-row">{chip_html}</div>',
-    unsafe_allow_html=True,
-)
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Chat input ───────────────────────────────
 placeholder = "Ask about regional trends, tenant mix, or site performance..."
