@@ -90,9 +90,10 @@ def get_answer(user_input: str, mode: str) -> str:
         )
 
     try:
-        # ── Try new google-genai SDK first (>= 0.8) ──
-        from google import genai as genai_new
-        client = genai_new.Client(api_key=api_key)
+        # ── google-genai SDK (pip install google-genai) ──
+        from google import genai as genai_client
+        client = genai_client.Client(api_key=api_key)
+        from google.genai import types as genai_types
         full_prompt = (
             f"[System] {system_instruction}\n\n"
             f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}"
@@ -100,24 +101,13 @@ def get_answer(user_input: str, mode: str) -> str:
         response = client.models.generate_content(
             model="gemini-2.0-flash",
             contents=full_prompt,
+            config=genai_types.GenerateContentConfig(temperature=0.2),
         )
         return response.text
-    except Exception:
-        pass
-
-    try:
-        # ── Fallback: classic google-generativeai SDK ──
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=system_instruction,
+    except ImportError:
+        return (
+            "⚠️ ไม่พบ library กรุณารัน: `pip install google-genai` แล้ว restart app"
         )
-        response = model.generate_content(
-            f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}",
-            generation_config={"temperature": 0.2},
-        )
-        return response.text
     except Exception as e:
         return f"⚠️ AI Error: {e}"
 
@@ -333,26 +323,31 @@ header[data-testid="stHeader"] { background: transparent !important; }
     border-radius: 50% !important;
 }
 
-/* ── Kill the dark bottom bar completely ── */
+/* ── Kill the dark bottom bar & black border completely ── */
 [data-testid="stBottom"],
 [data-testid="stBottom"] > div,
-.stBottom, .st-emotion-cache-1gulkj5,
+[data-testid="stBottom"] > div > div,
+.stBottom,
 section[data-testid="stBottom"] {
     background: var(--cream) !important;
     background-color: var(--cream) !important;
     border-top: 1px solid var(--border) !important;
     box-shadow: none !important;
+    outline: none !important;
 }
-/* Also target any fixed/sticky footer Streamlit might inject */
+/* Kill black border Streamlit draws around the chat input wrapper */
+[data-testid="stChatInput"],
+[data-testid="stChatInput"] > div,
+[data-testid="stChatInput"] > div > div {
+    background: var(--cream) !important;
+    background-color: var(--cream) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
 footer, [data-testid="InputInstructions"] {
     background: var(--cream) !important;
     color: var(--text-muted) !important;
-}
-[data-testid="stChatInput"] {
-    background: var(--cream) !important;
-}
-[data-testid="stChatInput"] > div {
-    background: var(--cream) !important;
 }
 [data-testid="stChatInput"] textarea {
     border-radius: 30px !important;
@@ -362,7 +357,8 @@ footer, [data-testid="InputInstructions"] {
     font-size: .88rem !important;
     background: #ffffff !important;
     color: var(--text-primary) !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07) !important;
+    outline: none !important;
 }
 [data-testid="stChatInput"] textarea:focus {
     border-color: var(--green-accent) !important;
@@ -376,6 +372,8 @@ footer, [data-testid="InputInstructions"] {
     background: var(--green-dark) !important;
     border-radius: 50% !important;
     color: #fff !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 /* ── Mode toggle buttons ── */
