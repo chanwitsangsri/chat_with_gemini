@@ -87,7 +87,7 @@ def get_answer(user_input: str, mode: str) -> str:
             "ภารกิจคือเป็น Matching Engine แนะนำร้านค้าที่เหมาะกับ Demand เพื่อลดความเสี่ยงการลงทุน.\n"
             "สำคัญมาก: ใน Top 3 Recommended Concepts ต้องระบุชื่อ Station และข้อมูลเฉพาะของ Station นั้นด้วยเสมอ เช่น traffic, max_card, gap, yield\n"
             "รูปแบบการตอบ (ทำตามนี้เป๊ะๆ):\n"
-            "## 🏪 Top 3 Recommended Concepts สำหรับ [Station Name]\n"
+            "## 🏪 Top 3 Recommended Concepts สำหรับ [STATION_DATABASE [name]]\n"
             "แต่ละ Concept ต้องมี: ชื่อ Concept | เหตุผลที่เหมาะกับ Station นี้ | ข้อมูล Station ที่สนับสนุน\n\n"
             "## 📊 Strategic Rationale\n"
             "อธิบายว่าทำไม Station นี้ถึงเหมาะกับ Concepts เหล่านี้ โดยอ้างอิง traffic และ max_card\n\n"
