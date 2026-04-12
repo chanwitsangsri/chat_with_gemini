@@ -1,195 +1,470 @@
+
 import streamlit as st
 from google import genai
 
-# 1. Page Configuration
-st.set_page_config(page_title="PTG Retail Platform", layout="wide")
+# ─────────────────────────────────────────────
+# PAGE CONFIG
+# ─────────────────────────────────────────────
+st.set_page_config(
+    page_title="PTG AI Advisor",
+    page_icon="⛽",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-# 2. Custom CSS (Premium Design based on Reference)
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
-
-    .stApp { background-color: #f9f9f9; }
-    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e5e7eb; }
-    
-    /* Typography */
-    .serif-title { font-family: 'Playfair Display', serif; color: #111827; font-size: 3.5rem; margin-bottom: 30px; }
-    .card-title { font-family: 'Playfair Display', serif; font-size: 2.2rem; line-height: 1.2; }
-    
-    /* Highlight Tags */
-    .live-tag { color: #4c6a23; font-weight: bold; background: #f0fdf4; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; letter-spacing: 0.5px; }
-    
-    /* Main Cards */
-    .white-card { background: white; padding: 40px; border-radius: 28px; border: 1px solid #f3f4f6; box-shadow: 0 10px 30px rgba(0,0,0,0.02); height: 100%; }
-    .green-card { background: #4c6a23; color: white; padding: 40px; border-radius: 28px; height: 100%; box-shadow: 0 15px 35px rgba(76, 106, 35, 0.2); }
-    .landlord-green-card { background: #96c93e; color: #111827; padding: 40px; border-radius: 28px; height: 100%; }
-
-    /* Strategic Recommendation Cards */
-    .rec-card { background: white; padding: 25px; border-radius: 20px; border: 1px solid #f3f4f6; min-height: 220px; margin-bottom: 20px; }
-    .icon-box { background: #f9f9f9; width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; font-size: 1.2rem; }
-
-    /* Buttons */
-    .custom-btn { background: #96c93e; color: #4c6a23; border: none; padding: 12px 25px; border-radius: 30px; font-weight: bold; width: 100%; margin-top: 20px; cursor: pointer; }
-    .dark-btn { background: #111827; color: white; border: none; padding: 12px 25px; border-radius: 30px; font-weight: bold; width: 100%; margin-top: 20px; cursor: pointer; }
-
-    /* Chat Area */
-    .chat-section { background: #ffffff; padding: 30px; border-radius: 35px; margin-top: 40px; border: 1px solid #f3f4f6; }
-    
-    /* Metrics */
-    .metric-label { color: #6b7280; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px; font-weight: 600; }
-    .metric-value { font-size: 2.2rem; font-weight: bold; color: #111827; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 3. Dummy Data (10 Stations & 5 Business Types) ---
-
+# ─────────────────────────────────────────────
+# DUMMY DATA
+# ─────────────────────────────────────────────
 BUSINESS_TYPES = {
     "Artisan Café / Coffee": "เน้นพรีเมียม, Co-working space, เหมาะกับกลุ่มคนทำงานและนักเดินทางที่พักนาน",
     "Health & Wellness / Pharmacy": "ยาสามัญและอาหารเสริม, เหมาะกับชุมชนรอบข้างหรือจุดพักรถทางไกล",
     "Convenience / Mini-mart": "สินค้าอุปโภคบริโภคพื้นฐาน, เน้นความรวดเร็วแบบ Grab-and-Go",
     "Quick-Service Food": "อาหารจานด่วนที่ปรุงง่ายไว เช่น เบอร์เกอร์ หรือข้าวกล่องพรีเมียม",
-    "Boutique Apparel / Fashion": "เสื้อผ้าแฟชั่นหรืออุปกรณ์เดินทาง, เหมาะกับแหล่งท่องเที่ยว"
+    "Boutique Apparel / Fashion": "เสื้อผ้าแฟชั่นหรืออุปกรณ์เดินทาง, เหมาะกับแหล่งท่องเที่ยว",
 }
 
 STATION_DATABASE = {
-    "phuket": {"name": "PTG Phuket Coastal", "traffic": "8,500 v/day", "max_card": "High Spending", "gap": "Artisan Café", "yield": "+15%"},
-    "chiang mai": {"name": "PTG Chiang Mai Uni", "traffic": "11,000 v/day", "max_card": "Student/Frequent", "gap": "Quick-Service Food", "yield": "+12%"},
-    "saraburi": {"name": "PTG Saraburi Highway", "traffic": "25,000 v/day", "max_card": "Truckers/Families", "gap": "Pharmacy", "yield": "+25%"},
-    "bangkok": {"name": "PTG Sukhumvit Prime", "traffic": "15,000 v/day", "max_card": "Office Workers", "gap": "Boutique Apparel", "yield": "+18%"},
-    "khon kaen": {"name": "PTG Khon Kaen Center", "traffic": "9,000 v/day", "max_card": "Local Loyalists", "gap": "Convenience", "yield": "+10%"},
-    "chonburi": {"name": "PTG Chonburi Industrial", "traffic": "18,000 v/day", "max_card": "Workforce", "gap": "Quick-Service Food", "yield": "+20%"},
-    "hat yai": {"name": "PTG Hat Yai Gateway", "traffic": "13,000 v/day", "max_card": "Travelers", "gap": "Health & Wellness", "yield": "+14%"},
-    "korat": {"name": "PTG Korat Bypass", "traffic": "22,000 v/day", "max_card": "Long-haulers", "gap": "Quick-Service Food", "yield": "+22%"},
-    "ayutthaya": {"name": "PTG Ayutthaya", "traffic": "7,000 v/day", "max_card": "Weekend Tourists", "gap": "Artisan Café", "yield": "+9%"},
-    "kanchanaburi": {"name": "PTG Kanchanaburi", "traffic": "6,500 v/day", "max_card": "Nature Lovers", "gap": "Boutique Apparel", "yield": "+11%"}
+    "phuket":      {"name": "PTG Phuket Coastal",      "traffic": "8,500 v/day",  "max_card": "High Spending",      "gap": "Artisan Café",      "yield": "+15%"},
+    "chiang mai":  {"name": "PTG Chiang Mai Uni",       "traffic": "11,000 v/day", "max_card": "Student/Frequent",   "gap": "Quick-Service Food","yield": "+12%"},
+    "saraburi":    {"name": "PTG Saraburi Highway",     "traffic": "25,000 v/day", "max_card": "Truckers/Families",  "gap": "Pharmacy",          "yield": "+25%"},
+    "bangkok":     {"name": "PTG Sukhumvit Prime",      "traffic": "15,000 v/day", "max_card": "Office Workers",     "gap": "Boutique Apparel",  "yield": "+18%"},
+    "khon kaen":   {"name": "PTG Khon Kaen Center",     "traffic": "9,000 v/day",  "max_card": "Local Loyalists",    "gap": "Convenience",       "yield": "+10%"},
+    "chonburi":    {"name": "PTG Chonburi Industrial",  "traffic": "18,000 v/day", "max_card": "Workforce",          "gap": "Quick-Service Food","yield": "+20%"},
+    "hat yai":     {"name": "PTG Hat Yai Gateway",      "traffic": "13,000 v/day", "max_card": "Travelers",          "gap": "Health & Wellness", "yield": "+14%"},
+    "korat":       {"name": "PTG Korat Bypass",         "traffic": "22,000 v/day", "max_card": "Long-haulers",       "gap": "Quick-Service Food","yield": "+22%"},
+    "ayutthaya":   {"name": "PTG Ayutthaya",            "traffic": "7,000 v/day",  "max_card": "Weekend Tourists",   "gap": "Artisan Café",      "yield": "+9%"},
+    "kanchanaburi":{"name": "PTG Kanchanaburi",         "traffic": "6,500 v/day",  "max_card": "Nature Lovers",      "gap": "Boutique Apparel",  "yield": "+11%"},
 }
 
-# --- 4. AI Engine Configuration ---
+# Quick recommendation cards per mode
+LANDLORD_CARDS = [
+    {"icon": "👥", "title": "Optimize Tenant Mix for Lat Phrao 71",
+     "desc": "Current EV station dwell time suggests a 15% higher demand for quick-service retail than currently allocated.",
+     "tag": "IMPLEMENT NOW", "tag_color": "#3a5a1c"},
+    {"icon": "💰", "title": "Revenue Growth Opportunity",
+     "desc": "Dynamic pricing models for high-traffic weekend slots could increase secondary revenue streams by ฿4.2k/mo.",
+     "tag": "VIEW ANALYSIS", "tag_color": "#3a5a1c"},
+    {"icon": "🛡️", "title": "Risk Mitigation",
+     "desc": "Localized power grid volatility detected in the Bang Kapi area. Recommend backup battery station expansion.",
+     "tag": "EVALUATE RISK", "tag_color": "#8B4513"},
+]
 
-try:
-    gemini_api_key = st.secrets["gemini_api_key"]
-    gmn_client = genai.Client(api_key=gemini_api_key)
-except KeyError:
-    st.error("Error: Please set 'gemini_api_key' in your secrets.toml.")
-    st.stop()
+RETAILER_CARDS = [
+    {"icon": "📅", "title": "Optimize Saturday Demand",
+     "desc": "Redistribute staffing levels to handle the 22% surge in afternoon traffic identified in Rama 9 outlets.",
+     "tag": "High Priority !", "tag_color": "#3a5a1c"},
+    {"icon": "☕", "title": "Dynamic Bundling Opportunity",
+     "desc": "Test coffee + bakery bundles during the 08:00 – 09:30 window to capture expanding commuter volume.",
+     "tag": "Medium Impact", "tag_color": "#5a5a1c"},
+    {"icon": "🏪", "title": "Rama 9 Real Estate Expansion",
+     "desc": "Three optimal vacant units identified within a 500m radius of current top-performing cluster.",
+     "tag": "New Insight", "tag_color": "#1c4a5a"},
+]
 
-def get_answer(user_input, mode):
-    found_station = next((v for k, v in STATION_DATABASE.items() if k in user_input.lower()), "General PTG Network")
+# ─────────────────────────────────────────────
+# AI ENGINE
+# ─────────────────────────────────────────────
+def get_answer(user_input: str, mode: str) -> str:
+    try:
+        api_key = st.secrets["gemini_api_key"]
+    except KeyError:
+        return "⚠️ กรุณาตั้งค่า `gemini_api_key` ใน secrets.toml ก่อนใช้งาน"
+
+    genai.configure(api_key=api_key)
+    found_station = next(
+        (v for k, v in STATION_DATABASE.items() if k in user_input.lower()),
+        "General PTG Network",
+    )
     business_context = "\n".join([f"- {k}: {v}" for k, v in BUSINESS_TYPES.items()])
-    
+
     if mode == "landlord":
         system_instruction = (
             "คุณคือ Leasing Strategy Manager ของ PTG. ตอบให้ตรงประเด็นตาม Data ที่ให้เท่านั้น. "
             "ภารกิจคือวิเคราะห์ Optimal Tenant Mix เพื่อสร้าง Yield per Sq.m. สูงสุด.\n"
-            "รูปแบบการตอบ:\n1. Top 3 Recommended Tenant Types\n2. Landlord Value Proposition\n3. Site Compatibility Analysis\n4. Risk & Opportunity Score"
+            "รูปแบบการตอบ:\n1. Top 3 Recommended Tenant Types\n2. Landlord Value Proposition\n"
+            "3. Site Compatibility Analysis\n4. Risk & Opportunity Score"
         )
     else:
         system_instruction = (
             "คุณคือ Business Intelligence Expert ของ PTG. ตอบให้ตรงประเด็นตาม Data ที่ให้เท่านั้น. "
             "ภารกิจคือเป็น Matching Engine แนะนำร้านค้าที่เหมาะกับ Demand เพื่อลดความเสี่ยงการลงทุน.\n"
-            "รูปแบบการตอบ:\n1. Top 3 Recommended Concepts\n2. Strategic Rationale\n3. Predicted Metrics (Demand Score, Target Group, Daily Revenue)"
+            "รูปแบบการตอบ:\n1. Top 3 Recommended Concepts\n2. Strategic Rationale\n"
+            "3. Predicted Metrics (Demand Score, Target Group, Daily Revenue)"
         )
 
     try:
-        response = gmn_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}",
-            config=genai.types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.2)
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_instruction,
+        )
+        response = model.generate_content(
+            f"Data: {found_station}\nBusinesses: {business_context}\nQuestion: {user_input}",
+            generation_config=genai.GenerationConfig(temperature=0.2),
         )
         return response.text
     except Exception as e:
         return f"AI Error: {e}"
 
-# --- 5. Navigation & Sidebar ---
+# ─────────────────────────────────────────────
+# GLOBAL CSS
+# ─────────────────────────────────────────────
+st.markdown("""
+<style>
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-with st.sidebar:
-    st.markdown("<h2 style='color: #111827; font-family: serif;'>PTG Advisor</h2>", unsafe_allow_html=True)
-    page = st.radio("Navigation", ["Retailer Advisor", "Landlord Advisor"])
-    st.markdown("---")
-    st.caption("Advanced ML Core v2.5")
-    current_mode = "landlord" if page == "Landlord Advisor" else "retail"
+/* ── Root palette (matches screenshots) ── */
+:root {
+    --green-dark:   #2d4a1a;
+    --green-mid:    #3e6b22;
+    --green-accent: #5a8c2f;
+    --green-light:  #8ab55a;
+    --cream:        #f5f4ef;
+    --card-bg:      #ffffff;
+    --text-primary: #1a1a1a;
+    --text-muted:   #6b7280;
+    --border:       #e5e7eb;
+    --hero-bg:      #f9f8f4;
+}
 
-# --- 6. Main Content Layout ---
+/* ── Reset Streamlit chrome ── */
+html, body, [data-testid="stAppViewContainer"] {
+    background: var(--cream) !important;
+    font-family: 'DM Sans', sans-serif !important;
+}
+[data-testid="stSidebar"] {
+    background: #ffffff !important;
+    border-right: 1px solid var(--border) !important;
+}
+[data-testid="stSidebar"] > div { padding-top: 1.5rem; }
+header[data-testid="stHeader"] { background: transparent !important; }
+.block-container { padding: 2rem 2.5rem !important; max-width: 1100px; }
 
-if page == "Retailer Advisor":
-    st.markdown('<h1 class="serif-title">AI Retailer Advisor</h1>', unsafe_allow_html=True)
-    
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.markdown(f"""
-        <div class="white-card">
-            <span class="live-tag">● LIVE INTELLIGENCE REPORT</span><br><br>
-            <div class="card-title">Identify the best <i style="color: #4c6a23;">Market Gap</i> for your retail investment.</div>
-            <br><br>
-            <div style="display: flex; gap: 60px;">
-                <div><div class="metric-label">Network Traffic</div><div class="metric-value">145K <span style="font-size: 1rem; color: #9ca3af;">v/day</span></div></div>
-                <div><div class="metric-label">Market Opportunity</div><div class="metric-value" style="color: #4c6a23;">High 📈</div></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with c2:
-        st.markdown("""
-        <div class="green-card">
-            <h3 style="color: #96c93e; margin-top:0;">Q4 Retail Forecast</h3>
-            <p style="font-size: 1.1rem; opacity: 0.9;">ML models indicate a 14% shift in weekday traffic patterns towards premium services.</p>
-            <button class="custom-btn">View Full Report →</button>
-        </div>
-        """, unsafe_allow_html=True)
+/* ── Sidebar brand ── */
+.sidebar-brand {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    padding: 0 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+}
 
-else: # Landlord Advisor
-    st.markdown('<h1 class="serif-title">AI Landlord Advisor</h1>', unsafe_allow_html=True)
-    
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.markdown(f"""
-        <div class="white-card">
-            <span class="live-tag">● PORTFOLIO MONITOR</span><br><br>
-            <div class="card-title">Maximize your <i style="color: #96c93e;">Rental Yield</i> per square meter with AI.</div>
-            <br><br>
-            <div style="display: flex; gap: 60px;">
-                <div><div class="metric-label">Occupancy Rate</div><div class="metric-value">91.2%</div></div>
-                <div><div class="metric-label">Yield Efficiency</div><div class="metric-value" style="color: #4c6a23;">+22%</div></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with c2:
-        st.markdown("""
-        <div class="landlord-green-card">
-            <div class="icon-box" style="background: #111827; color: white;">⚡</div>
-            <div class="metric-label" style="color: #111827;">ASSET OPTIMIZATION</div>
-            <h3 style="margin-top: 10px;">Expansion Forecast</h3>
-            <p style="font-size: 1rem; opacity: 0.8;">Rama 9 & Sukhumvit nodes show 35% higher retail demand for Q3-Q4.</p>
-            <button class="dark-btn">Audit Portfolio</button>
-        </div>
-        """, unsafe_allow_html=True)
+/* ── Page title ── */
+.ptg-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.6rem;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    line-height: 1.15;
+}
 
-# Shared Section: Recommendations & Chat
-st.markdown("<br><h3 style='font-family: serif; font-size: 2rem;'>Strategic Insights</h3>", unsafe_allow_html=True)
-r1, r2, r3 = st.columns(3)
-with r1:
-    st.markdown('<div class="rec-card"><div class="icon-box">📍</div><h4>Location Analysis</h4><p style="color: #6b7280;">Phuket & Bangkok nodes are showing top-tier spending patterns.</p><b>Priority: High</b></div>', unsafe_allow_html=True)
-with r2:
-    st.markdown('<div class="rec-card"><div class="icon-box">☕</div><h4>Tenant Synergy</h4><p style="color: #6b7280;">Coffee shops are driving 18% higher dwell time in highway stations.</p><b>Insight: New</b></div>', unsafe_allow_html=True)
-with r3:
-    st.markdown('<div class="rec-card"><div class="icon-box">📊</div><h4>Traffic Predict</h4><p style="color: #6b7280;">Predicted 22% surge in Saraburi traffic due to upcoming holidays.</p><b>ML Status: Active</b></div>', unsafe_allow_html=True)
+/* ── Hero row ── */
+.hero-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
 
-# --- 7. Chat Interface ---
-st.markdown('<div class="chat-section">', unsafe_allow_html=True)
+/* Live Intelligence Card */
+.hero-intel {
+    flex: 1.4;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+}
+.live-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.68rem; font-weight: 600; letter-spacing: .08em;
+    color: var(--green-mid); text-transform: uppercase;
+    background: #edf5e5; border-radius: 20px;
+    padding: 4px 10px; margin-bottom: 1rem;
+}
+.live-dot { width:7px; height:7px; border-radius:50%; background:var(--green-mid); }
+.hero-headline {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem; line-height: 1.3;
+    color: var(--text-primary); margin-bottom: 1.4rem;
+}
+.hero-headline em { color: var(--green-accent); font-style: italic; }
+.metric-row { display:flex; gap:2.5rem; }
+.metric-block label {
+    font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+    color: var(--text-muted); display:block; margin-bottom:2px;
+}
+.metric-block .metric-val {
+    font-size: 2rem; font-weight: 700; color: var(--text-primary);
+}
+.metric-block .metric-val span { font-size:1rem; color:var(--text-muted); }
+.metric-block .metric-val.green { color: var(--green-accent); }
+
+/* Forecast Card */
+.hero-forecast {
+    flex: 1;
+    background: var(--green-dark);
+    border-radius: 16px;
+    padding: 2rem;
+    color: #fff;
+    display:flex; flex-direction:column; justify-content:space-between;
+}
+.forecast-label {
+    font-size:.65rem; letter-spacing:.12em; text-transform:uppercase;
+    color: rgba(255,255,255,.6); margin-bottom:.5rem;
+}
+.forecast-icon {
+    width:36px;height:36px;border-radius:10px;
+    background:rgba(255,255,255,.15);
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.1rem;margin-bottom:1rem;
+}
+.hero-forecast h3 {
+    font-family:'DM Serif Display',serif;
+    font-size:1.5rem;line-height:1.2;margin-bottom:.8rem;
+}
+.hero-forecast p { font-size:.82rem;color:rgba(255,255,255,.75);line-height:1.6;margin-bottom:1.2rem; }
+.btn-forecast {
+    display:inline-block;background:var(--green-accent);
+    color:#fff;border-radius:30px;padding:10px 20px;
+    font-size:.82rem;font-weight:600;text-decoration:none;cursor:pointer;
+    border:none;transition:background .2s;
+}
+.btn-forecast:hover { background:var(--green-light); }
+
+/* ── Section heading ── */
+.section-heading {
+    font-family:'DM Serif Display',serif;
+    font-size:1.4rem;color:var(--text-primary);
+    margin: .5rem 0 1rem;
+}
+
+/* ── Recommendation cards ── */
+.rec-row { display:flex;gap:1rem;margin-bottom:1.5rem; }
+.rec-card {
+    flex:1;background:var(--card-bg);border:1px solid var(--border);
+    border-radius:14px;padding:1.4rem;
+    transition:box-shadow .2s,transform .2s;
+}
+.rec-card:hover { box-shadow:0 6px 24px rgba(0,0,0,.07);transform:translateY(-2px); }
+.rec-icon {
+    width:38px;height:38px;border-radius:10px;
+    background:#f0f4ec;display:flex;align-items:center;
+    justify-content:center;font-size:1.1rem;margin-bottom:.9rem;
+}
+.rec-card h4 { font-size:.95rem;font-weight:600;color:var(--text-primary);margin-bottom:.5rem;line-height:1.35; }
+.rec-card p  { font-size:.8rem;color:var(--text-muted);line-height:1.6;margin-bottom:.9rem; }
+.rec-tag     { font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase; }
+
+/* ── Chat section ── */
+.chat-wrap {
+    background:var(--card-bg);border:1px solid var(--border);
+    border-radius:16px;padding:1.5rem;
+}
+.suggestion-row { display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem; }
+.suggestion-chip {
+    font-size:.75rem;color:var(--text-muted);border:1px solid var(--border);
+    border-radius:20px;padding:5px 12px;cursor:pointer;
+    background:transparent;transition:background .15s;
+}
+.suggestion-chip:hover { background:var(--cream); }
+
+/* ── Chat messages ── */
+[data-testid="stChatMessage"] {
+    border-radius:12px !important;
+    background: transparent !important;
+}
+
+/* ── Streamlit chat input ── */
+[data-testid="stChatInput"] textarea {
+    border-radius: 30px !important;
+    border: 1px solid var(--border) !important;
+    padding: 12px 20px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: .88rem !important;
+    background: var(--cream) !important;
+}
+
+/* ── Mode toggle buttons ── */
+div[data-testid="column"] button {
+    border-radius: 30px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: .82rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# SESSION STATE
+# ─────────────────────────────────────────────
+if "mode" not in st.session_state:
+    st.session_state.mode = "retailer"
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": f"สวัสดีครับ! ผม AI {page} ประจำแพลตฟอร์ม PTG พร้อมวิเคราะห์ข้อมูลให้คุณแล้วครับ"}]
+    st.session_state.messages = {}
 
-for msg in st.session_state.messages:
+def msgs():
+    key = st.session_state.mode
+    if key not in st.session_state.messages:
+        greeting = (
+            "สวัสดีครับ! ผม **AI Landlord Advisor** ประจำแพลตฟอร์ม PTG 🏗️\n\n"
+            "พร้อมวิเคราะห์ Tenant Mix · Yield per Sq.m · และโอกาสขยายสาขาให้คุณแล้วครับ"
+            if key == "landlord" else
+            "สวัสดีครับ! ผม **AI Retailer Advisor** ประจำแพลตฟอร์ม PTG ☕\n\n"
+            "พร้อมแนะนำทำเลที่เหมาะสม · วิเคราะห์ Demand · และลดความเสี่ยงการลงทุนให้คุณแล้วครับ"
+        )
+        st.session_state.messages[key] = [{"role": "assistant", "content": greeting}]
+    return st.session_state.messages[key]
+
+# ─────────────────────────────────────────────
+# SIDEBAR
+# ─────────────────────────────────────────────
+with st.sidebar:
+    mode = st.session_state.mode
+    brand = "PTG Landlord" if mode == "landlord" else "PTG Retailer"
+    st.markdown(f'<div class="sidebar-brand">⛽ {brand}</div>', unsafe_allow_html=True)
+
+    if mode == "landlord":
+        nav_items = ["Overview","My Stations","Applications","Tenants","Revenue","**AI Advisor**"]
+    else:
+        nav_items = ["Dashboard","Performance","ML Predictions","Submit Store Data","My Applications","**AI Advisor**"]
+
+    for item in nav_items:
+        is_active = "**" in item
+        label = item.replace("**","")
+        if is_active:
+            st.markdown(f"""
+            <div style="padding:8px 12px;border-radius:8px;background:#edf5e5;
+                        border-left:3px solid #5a8c2f;font-weight:600;
+                        color:#3e6b22;font-size:.88rem;margin-bottom:4px;">
+                ✦ {label}
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="padding:8px 12px;border-radius:8px;color:#6b7280;
+                        font-size:.88rem;margin-bottom:4px;cursor:pointer;">
+                {label}
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin:1.5rem 0;border-color:#e5e7eb;'>", unsafe_allow_html=True)
+    st.markdown('<div style="font-size:.75rem;color:#9ca3af;padding:0 .5rem;">Switch mode</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🏢 Landlord", use_container_width=True,
+                     type="primary" if mode=="landlord" else "secondary"):
+            st.session_state.mode = "landlord"
+            st.rerun()
+    with col2:
+        if st.button("🛍 Retailer", use_container_width=True,
+                     type="primary" if mode=="retailer" else "secondary"):
+            st.session_state.mode = "retailer"
+            st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div style="font-size:.75rem;color:#9ca3af;padding:0 .5rem;">🔒 Logout</div>', unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# MAIN CONTENT
+# ─────────────────────────────────────────────
+mode = st.session_state.mode
+is_landlord = (mode == "landlord")
+
+title = "AI Landlord Advisor" if is_landlord else "AI Retailer Advisor"
+st.markdown(f'<div class="ptg-title">{title}</div>', unsafe_allow_html=True)
+
+# ── Hero row ────────────────────────────────
+if is_landlord:
+    hero_italic = "14% above market"
+    hero_rest   = " in the Lat Phrao district."
+    metric1_label, metric1_val, metric1_suffix = "OCCUPANCY EFFICIENCY", "89.4", "%"
+    metric2_label, metric2_val, metric2_suffix = "RETAIL YIELD YOY", "+22", "%"
+    forecast_label  = "EXPANSION FORECAST"
+    forecast_icon   = "📈"
+    forecast_title  = "Projected Growth for Sukhumvit 62"
+    forecast_body   = ("Based on local traffic patterns and the upcoming rail extension, "
+                       "this node shows a 35% increase in retail demand by Q4.")
+    forecast_btn    = "View Detailed Forecast"
+    cards = LANDLORD_CARDS
+    suggestions = ['"Compare yield with Nonthaburi"', '"Best performing retail tenant"', '"Forecast for 2025 expansion"']
+else:
+    hero_italic = "Coffee Corner"
+    hero_rest   = " segment is performing 18% above rolling average."
+    metric1_label, metric1_val, metric1_suffix = "LOCATION SCORE", "92", " / 100"
+    metric2_label, metric2_val, metric2_suffix = "REVENUE GROWTH", "+18", "%"
+    forecast_label  = "Q4 CONSUMER SHIFT"
+    forecast_icon   = "🔮"
+    forecast_title  = "Projected Q4 Shift in Consumer Behavior"
+    forecast_body   = ("ML models indicate a 14% shift in weekday traffic patterns towards "
+                       "premium breakfast items. Early adoption could secure market dominance in Rama 9.")
+    forecast_btn    = "View Strategic Forecast"
+    cards = RETAILER_CARDS
+    suggestions = ['"Analyze competitors in Sukhumvit"', '"What is my Q3 footfall forecast?"', '"Identify saturation in Rama 9"']
+
+st.markdown(f"""
+<div class="hero-row">
+  <div class="hero-intel">
+    <div class="live-badge"><span class="live-dot"></span>LIVE INTELLIGENCE REPORT</div>
+    <div class="hero-headline">Your <em>{hero_italic}</em>{hero_rest}</div>
+    <div class="metric-row">
+      <div class="metric-block">
+        <label>{metric1_label}</label>
+        <div class="metric-val">{metric1_val}<span>{metric1_suffix}</span></div>
+      </div>
+      <div class="metric-block">
+        <label>{metric2_label}</label>
+        <div class="metric-val green">{metric2_val}<span>{metric2_suffix} ↗</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-forecast">
+    <div>
+      <div class="forecast-label">{forecast_label}</div>
+      <div class="forecast-icon">{forecast_icon}</div>
+      <h3>{forecast_title}</h3>
+      <p>{forecast_body}</p>
+    </div>
+    <button class="btn-forecast">{forecast_btn} →</button>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Recommendation cards ─────────────────────
+st.markdown('<div class="section-heading">Strategic Recommendations</div>', unsafe_allow_html=True)
+st.markdown('<div class="rec-row">', unsafe_allow_html=True)
+for card in cards:
+    st.markdown(f"""
+    <div class="rec-card">
+      <div class="rec-icon">{card['icon']}</div>
+      <h4>{card['title']}</h4>
+      <p>{card['desc']}</p>
+      <span class="rec-tag" style="color:{card['tag_color']};">{card['tag']} ›</span>
+    </div>
+    """, unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ── Chat section ─────────────────────────────
+st.markdown('<div class="chat-wrap">', unsafe_allow_html=True)
+
+for msg in msgs():
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("ถามเกี่ยวกับทำเล หรือ แนวโน้มธุรกิจ (เช่น PTG Phuket ควรทำอะไร?)"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+# Suggestion chips (cosmetic — clicking copies text only via JS is not straightforward in Streamlit)
+chip_html = "".join(
+    f'<span class="suggestion-chip">{s}</span>' for s in suggestions
+)
+st.markdown(
+    f'<div class="suggestion-row">{chip_html}</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ── Chat input ───────────────────────────────
+placeholder = "Ask about regional trends, tenant mix, or site performance..."
+if prompt := st.chat_input(placeholder):
+    msgs().append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
         with st.spinner("AI is calculating metrics..."):
-            response = get_answer(prompt, current_mode)
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
-st.markdown('</div>', unsafe_allow_html=True)
+            reply = get_answer(prompt, mode)
+            st.markdown(reply)
+            msgs().append({"role": "assistant", "content": reply})
