@@ -35,7 +35,7 @@ def _load_secrets():
         url,
         st.secrets["SUPABASE_KEY"],
         st.secrets["GEMINI_API_KEY"],
-        st.secrets.get("GEMINI_MODEL", "gemini-3.1-flash-lite-preview"),
+        st.secrets.get("GEMINI_MODEL", "gemini-1.5-flash"),
     )
 
 SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY, GEMINI_MODEL = _load_secrets()
@@ -881,10 +881,8 @@ with col_main:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Chat section ──────────────────────────────────────────────────────
-        st.markdown('<div class="chat-section">', unsafe_allow_html=True)
-
-        # Empty state
+        # ── Render existing chat history (BEFORE custom div) ─────────────────
+        # st.chat_message must render outside HTML divs to work correctly
         if not st.session_state.history:
             st.markdown("""
             <div style="text-align:center; padding:32px 0; color:#A8A29E;">
@@ -895,13 +893,10 @@ with col_main:
                 <div style="font-size:13px; margin-top:4px;">Ask anything about your business below</div>
             </div>
             """, unsafe_allow_html=True)
-
-        # ── Render existing history with st.chat_message ──────────────────────
-        # st.chat_message handles layout correctly — no duplication
-        for msg in st.session_state.history:
-            avatar = user_id[:2].upper() if msg["role"] == "user" else "🤖"
-            with st.chat_message(msg["role"], avatar=avatar):
-                st.markdown(msg["content"])
+        else:
+            for msg in st.session_state.history:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
 
         # ── Suggestion chips ──────────────────────────────────────────────────
         if role == "retailer":
@@ -924,27 +919,25 @@ with col_main:
                     st.session_state.pending_question = chip
                     st.rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)  # end chat-section
-
-        # ── Chat input (fixed at bottom of page) ─────────────────────────────
+        # ── Chat input (fixed at bottom of page by Streamlit) ─────────────────
         chat_question = st.chat_input(
             "Ask about regional trends, performance, station matches...",
         )
 
-        # Pick from chat_input OR chip button (chip sets pending_question then reruns)
+        # Pick from chat_input OR chip button
         question = chat_question or st.session_state.pop("pending_question", None)
 
         # ── Handle question — render once, stream once, save once ─────────────
         if question:
             question = question.strip()
 
-            # 1. Show user message
-            with st.chat_message("user", avatar=user_id[:2].upper()):
+            # 1. Show user message immediately
+            with st.chat_message("user"):
                 st.markdown(question)
             st.session_state.history.append({"role": "user", "content": question})
 
-            # 2. Stream AI response
-            with st.chat_message("assistant", avatar="🤖"):
+            # 2. Stream AI response token by token
+            with st.chat_message("assistant"):
                 try:
                     ctx = build_context(role, user_id, question)
                     full_answer = st.write_stream(
@@ -959,7 +952,7 @@ with col_main:
                     full_answer = f"⚠️ Error: {str(e)[:200]}"
                     st.error(full_answer)
 
-            # 3. Save to history — no rerun needed, already rendered above
+            # 3. Save to history — no rerun, already rendered above
             st.session_state.history.append({"role": "model", "content": full_answer})
 
     st.markdown('</div>', unsafe_allow_html=True)  # end main-content
