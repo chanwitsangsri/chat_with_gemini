@@ -884,32 +884,8 @@ with col_main:
         # ── Chat section ──────────────────────────────────────────────────────
         st.markdown('<div class="chat-section">', unsafe_allow_html=True)
 
-        # Render chat history
-        if st.session_state.history:
-            msgs_html = '<div class="chat-messages">'
-            for msg in st.session_state.history:
-                if msg["role"] == "user":
-                    msgs_html += f"""
-                    <div class="msg-row user">
-                        <div class="msg-avatar user">{user_id[:2]}</div>
-                        <div class="msg-bubble user">{msg["content"]}</div>
-                    </div>"""
-                else:
-                    # Format AI response — convert **bold** markdown
-                    content = msg["content"].replace("**", "<strong>", 1)
-                    while "**" in content:
-                        content = content.replace("**", "</strong>", 1)
-                        if "**" in content:
-                            content = content.replace("**", "<strong>", 1)
-                    content = content.replace("\n", "<br>")
-                    msgs_html += f"""
-                    <div class="msg-row">
-                        <div class="msg-avatar ai">AI</div>
-                        <div class="msg-bubble ai">{content}</div>
-                    </div>"""
-            msgs_html += "</div>"
-            st.markdown(msgs_html, unsafe_allow_html=True)
-        else:
+        # Empty state
+        if not st.session_state.history:
             st.markdown("""
             <div style="text-align:center; padding:32px 0; color:#A8A29E;">
                 <div style="font-size:32px; margin-bottom:8px;">✨</div>
@@ -920,7 +896,14 @@ with col_main:
             </div>
             """, unsafe_allow_html=True)
 
-        # ── Suggestion chips (set a pending question, no rerun) ─────────────
+        # ── Render existing history with st.chat_message ──────────────────────
+        # st.chat_message handles layout correctly — no duplication
+        for msg in st.session_state.history:
+            avatar = user_id[:2].upper() if msg["role"] == "user" else "🤖"
+            with st.chat_message(msg["role"], avatar=avatar):
+                st.markdown(msg["content"])
+
+        # ── Suggestion chips ──────────────────────────────────────────────────
         if role == "retailer":
             chips = [
                 "How is my store performing?",
@@ -939,63 +922,44 @@ with col_main:
             with chip_cols[i]:
                 if st.button(chip, key=f"chip_{i}", use_container_width=True):
                     st.session_state.pending_question = chip
+                    st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)  # end chat-section
 
-        # ── Chat input — native Streamlit widget, instant response ───────────
-        # st.chat_input sits fixed at bottom, doesn't trigger full rerun on typing
+        # ── Chat input (fixed at bottom of page) ─────────────────────────────
         chat_question = st.chat_input(
             "Ask about regional trends, performance, station matches...",
-            key="chat_input_widget",
         )
 
-        # Pick question from chat input OR chip button
+        # Pick from chat_input OR chip button (chip sets pending_question then reruns)
         question = chat_question or st.session_state.pop("pending_question", None)
 
-        # ── Handle question ───────────────────────────────────────────────────
+        # ── Handle question — render once, stream once, save once ─────────────
         if question:
             question = question.strip()
 
-            # Show user bubble immediately (no rerun needed)
+            # 1. Show user message
+            with st.chat_message("user", avatar=user_id[:2].upper()):
+                st.markdown(question)
             st.session_state.history.append({"role": "user", "content": question})
 
-            # Re-render history including the new user message
-            st.markdown(f"""
-            <div class="msg-row user" style="margin-top:12px">
-                <div class="msg-avatar user">{user_id[:2]}</div>
-                <div class="msg-bubble user">{question}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Stream Gemini response into an AI bubble
-            with st.container():
-                st.markdown('''
-                <div class="msg-row" style="margin-top:8px">
-                    <div class="msg-avatar ai">AI</div>
-                ''', unsafe_allow_html=True)
-
-                answer_placeholder = st.empty()
-                full_answer = ""
-
+            # 2. Stream AI response
+            with st.chat_message("assistant", avatar="🤖"):
                 try:
                     ctx = build_context(role, user_id, question)
-                    # Stream token by token into the bubble
-                    with answer_placeholder.container():
-                        full_answer = st.write_stream(
-                            call_gemini_stream(
-                                role,
-                                st.session_state.history[:-1],
-                                question,
-                                ctx,
-                            )
+                    full_answer = st.write_stream(
+                        call_gemini_stream(
+                            role,
+                            st.session_state.history[:-1],
+                            question,
+                            ctx,
                         )
+                    )
                 except Exception as e:
                     full_answer = f"⚠️ Error: {str(e)[:200]}"
-                    answer_placeholder.error(full_answer)
+                    st.error(full_answer)
 
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            # Save to history (no rerun — UI already shows it)
+            # 3. Save to history — no rerun needed, already rendered above
             st.session_state.history.append({"role": "model", "content": full_answer})
 
     st.markdown('</div>', unsafe_allow_html=True)  # end main-content
