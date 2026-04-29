@@ -462,6 +462,79 @@ html, body, [data-testid="stAppViewContainer"] {
     0%, 80%, 100% { transform: translateY(0); }
     40% { transform: translateY(-6px); }
 }
+
+/* ── Fix chat message text color (white bg + white text = invisible) ── */
+[data-testid="stChatMessage"] {
+    background: #FFFFFF !important;
+    border-radius: 16px !important;
+    padding: 12px 16px !important;
+    margin-bottom: 8px !important;
+    color: #1A1C18 !important;
+}
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] div,
+[data-testid="stChatMessage"] span,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] strong {
+    color: #1A1C18 !important;
+}
+
+/* User bubble — dark green background */
+[data-testid="stChatMessage"][data-testid*="user"],
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    background: #446900 !important;
+}
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) p,
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) div,
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) span {
+    color: #FFFFFF !important;
+}
+
+/* Assistant bubble */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    background: #F4F4ED !important;
+}
+
+/* ── Chat input — fix dark background, pin to bottom ── */
+[data-testid="stChatInput"] {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(132,189,37,0.4) !important;
+    border-radius: 40px !important;
+}
+[data-testid="stChatInput"] textarea {
+    color: #1A1C18 !important;
+    background: transparent !important;
+    font-family: 'Manrope', sans-serif !important;
+    font-size: 15px !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #A8A29E !important;
+}
+/* Override the dark background that Streamlit applies by default */
+[data-testid="stBottom"] {
+    background: #FAFAF3 !important;
+    border-top: 1px solid rgba(231,229,228,0.4) !important;
+    padding: 12px 48px !important;
+}
+[data-testid="stBottom"] > div {
+    background: #FAFAF3 !important;
+}
+
+/* Chip buttons — keep green style, fix text color */
+[data-testid="stButton"] > button {
+    background: rgba(132,189,37,0.15) !important;
+    color: #446900 !important;
+    border: 1px solid rgba(132,189,37,0.3) !important;
+    border-radius: 9999px !important;
+    font-family: 'Manrope', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    padding: 8px 16px !important;
+}
+[data-testid="stButton"] > button:hover {
+    background: rgba(132,189,37,0.3) !important;
+    border-color: #84BD25 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -881,22 +954,23 @@ with col_main:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Render existing chat history (BEFORE custom div) ─────────────────
-        # st.chat_message must render outside HTML divs to work correctly
-        if not st.session_state.history:
-            st.markdown("""
-            <div style="text-align:center; padding:32px 0; color:#A8A29E;">
-                <div style="font-size:32px; margin-bottom:8px;">✨</div>
-                <div style="font-family:'Newsreader',serif; font-size:18px; color:#78716C;">
-                    Your AI advisor is ready
+        # ── Render existing chat history in a scrollable container ────────────
+        chat_container = st.container(height=420, border=False)
+        with chat_container:
+            if not st.session_state.history:
+                st.markdown("""
+                <div style="text-align:center; padding:48px 0; color:#A8A29E;">
+                    <div style="font-size:36px; margin-bottom:12px;">✨</div>
+                    <div style="font-family:'Newsreader',serif; font-size:20px; color:#78716C;">
+                        Your AI advisor is ready
+                    </div>
+                    <div style="font-size:13px; margin-top:6px;">Ask anything about your business below</div>
                 </div>
-                <div style="font-size:13px; margin-top:4px;">Ask anything about your business below</div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            for msg in st.session_state.history:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
+                """, unsafe_allow_html=True)
+            else:
+                for msg in st.session_state.history:
+                    with st.chat_message(msg["role"]):
+                        st.markdown(msg["content"])
 
         # ── Suggestion chips ──────────────────────────────────────────────────
         if role == "retailer":
@@ -927,32 +1001,34 @@ with col_main:
         # Pick from chat_input OR chip button
         question = chat_question or st.session_state.pop("pending_question", None)
 
-        # ── Handle question — render once, stream once, save once ─────────────
+        # ── Handle question — render inside the same container ──────────────
         if question:
             question = question.strip()
 
-            # 1. Show user message immediately
-            with st.chat_message("user"):
-                st.markdown(question)
+            # 1. Show user message inside the scrollable container
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(question)
             st.session_state.history.append({"role": "user", "content": question})
 
-            # 2. Stream AI response token by token
-            with st.chat_message("assistant"):
-                try:
-                    ctx = build_context(role, user_id, question)
-                    full_answer = st.write_stream(
-                        call_gemini_stream(
-                            role,
-                            st.session_state.history[:-1],
-                            question,
-                            ctx,
+            # 2. Stream AI response inside the same container
+            with chat_container:
+                with st.chat_message("assistant"):
+                    try:
+                        ctx = build_context(role, user_id, question)
+                        full_answer = st.write_stream(
+                            call_gemini_stream(
+                                role,
+                                st.session_state.history[:-1],
+                                question,
+                                ctx,
+                            )
                         )
-                    )
-                except Exception as e:
-                    full_answer = f"⚠️ Error: {str(e)[:200]}"
-                    st.error(full_answer)
+                    except Exception as e:
+                        full_answer = f"⚠️ Error: {str(e)[:200]}"
+                        st.error(full_answer)
 
-            # 3. Save to history — no rerun, already rendered above
+            # 3. Save to history
             st.session_state.history.append({"role": "model", "content": full_answer})
 
     st.markdown('</div>', unsafe_allow_html=True)  # end main-content
