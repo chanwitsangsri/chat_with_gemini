@@ -16,13 +16,29 @@ from google import genai
 from supabase import create_client, Client
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CONFIG
+# CONFIG — loaded from .streamlit/secrets.toml
 # ══════════════════════════════════════════════════════════════════════════════
 
-SUPABASE_URL   = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY   = st.secrets["SUPABASE_KEY"]
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-GEMINI_MODEL   = st.secrets.get("GEMINI_MODEL", "gemini-1.5-flash")
+def _load_secrets():
+    required = ["SUPABASE_URL", "SUPABASE_KEY", "GEMINI_API_KEY"]
+    missing  = [k for k in required if k not in st.secrets]
+    if missing:
+        st.error(f"❌ Missing secrets: {', '.join(missing)}. Add them to .streamlit/secrets.toml")
+        st.stop()
+
+    url = st.secrets["SUPABASE_URL"]
+    if not url.startswith("https://"):
+        st.error("❌ SUPABASE_URL must start with https:// — check your secrets.toml")
+        st.stop()
+
+    return (
+        url,
+        st.secrets["SUPABASE_KEY"],
+        st.secrets["GEMINI_API_KEY"],
+        st.secrets.get("GEMINI_MODEL", "gemini-3.1-flash-lite-preview"),
+    )
+
+SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY, GEMINI_MODEL = _load_secrets()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG
@@ -456,8 +472,16 @@ html, body, [data-testid="stAppViewContainer"] {
 
 @st.cache_resource
 def get_clients():
-    g = genai.Client(api_key=GEMINI_API_KEY)
-    s = create_client(SUPABASE_URL, SUPABASE_KEY)
+    try:
+        g = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        st.error(f"❌ Gemini init failed: {e}")
+        st.stop()
+    try:
+        s = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        st.error(f"❌ Supabase init failed. Check SUPABASE_URL in secrets.toml.\nError: {e}")
+        st.stop()
     return g, s
 
 gemini_client, supabase_client = get_clients()
@@ -553,7 +577,9 @@ def fetch_ml_outputs(app_ids):
     ).in_("ref_id", app_ids).execute().data
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def build_context(role, user_id, question):
+    """Cached for 5 min — same user+role+intent won't re-hit Supabase."""
     q = question.lower()
     loc_kw = ["which station","match","location","expand","new station","where should","best station","find"]
     is_loc = any(k in q for k in loc_kw)
@@ -638,7 +664,8 @@ SYSTEM_LANDLORD = textwrap.dedent("""
 """) + _OUTPUT_FORMAT
 
 
-def call_gemini(role, history, question, context):
+def call_gemini_stream(role, history, question, context):
+    """Returns a streaming generator — each chunk is a string token."""
     system = SYSTEM_RETAILER if role == "retailer" else SYSTEM_LANDLORD
 
     messages = [
@@ -655,22 +682,23 @@ def call_gemini(role, history, question, context):
         "parts": [{"text": f"{question}\n\n[Database context:]\n{context}"}]
     })
 
-    response = gemini_client.models.generate_content(
+    for chunk in gemini_client.models.generate_content_stream(
         model=GEMINI_MODEL,
         contents=messages,
-    )
-    return response.text
+    ):
+        if chunk.text:
+            yield chunk.text
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SESSION STATE
 # ══════════════════════════════════════════════════════════════════════════════
 
-if "role"     not in st.session_state: st.session_state.role     = None
-if "user_id"  not in st.session_state: st.session_state.user_id  = ""
-if "history"  not in st.session_state: st.session_state.history  = []
-if "started"  not in st.session_state: st.session_state.started  = False
-if "chip_input" not in st.session_state: st.session_state.chip_input = ""
+if "role"             not in st.session_state: st.session_state.role             = None
+if "user_id"          not in st.session_state: st.session_state.user_id          = ""
+if "history"          not in st.session_state: st.session_state.history          = []
+if "started"          not in st.session_state: st.session_state.started          = False
+if "pending_question" not in st.session_state: st.session_state.pending_question = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -892,7 +920,7 @@ with col_main:
             </div>
             """, unsafe_allow_html=True)
 
-        # Suggestion chips
+        # ── Suggestion chips (set a pending question, no rerun) ─────────────
         if role == "retailer":
             chips = [
                 "How is my store performing?",
@@ -910,44 +938,64 @@ with col_main:
         for i, chip in enumerate(chips):
             with chip_cols[i]:
                 if st.button(chip, key=f"chip_{i}", use_container_width=True):
-                    st.session_state.chip_input = chip
-                    st.rerun()
+                    st.session_state.pending_question = chip
 
         st.markdown("</div>", unsafe_allow_html=True)  # end chat-section
 
-        # ── Input row ────────────────────────────────────────────────────────
-        in_col, btn_col = st.columns([5, 1])
+        # ── Chat input — native Streamlit widget, instant response ───────────
+        # st.chat_input sits fixed at bottom, doesn't trigger full rerun on typing
+        chat_question = st.chat_input(
+            "Ask about regional trends, performance, station matches...",
+            key="chat_input_widget",
+        )
 
-        prefill = st.session_state.chip_input
-        st.session_state.chip_input = ""   # reset after reading
+        # Pick question from chat input OR chip button
+        question = chat_question or st.session_state.pop("pending_question", None)
 
-        with in_col:
-            user_input = st.text_input(
-                "message",
-                value=prefill,
-                placeholder="Ask about regional trends, performance, station matches...",
-                label_visibility="collapsed",
-                key="chat_input",
-            )
-        with btn_col:
-            send = st.button("Send →", use_container_width=True)
+        # ── Handle question ───────────────────────────────────────────────────
+        if question:
+            question = question.strip()
 
-        # ── Handle send ───────────────────────────────────────────────────────
-        if send and user_input.strip():
-            question = user_input.strip()
-
-            # Add user message
+            # Show user bubble immediately (no rerun needed)
             st.session_state.history.append({"role": "user", "content": question})
 
-            # Fetch data + call Gemini
-            with st.spinner(""):
-                try:
-                    ctx    = build_context(role, user_id, question)
-                    answer = call_gemini(role, st.session_state.history[:-1], question, ctx)
-                except Exception as e:
-                    answer = f"⚠️ Sorry, I encountered an error: {str(e)[:200]}"
+            # Re-render history including the new user message
+            st.markdown(f"""
+            <div class="msg-row user" style="margin-top:12px">
+                <div class="msg-avatar user">{user_id[:2]}</div>
+                <div class="msg-bubble user">{question}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            st.session_state.history.append({"role": "model", "content": answer})
-            st.rerun()
+            # Stream Gemini response into an AI bubble
+            with st.container():
+                st.markdown('''
+                <div class="msg-row" style="margin-top:8px">
+                    <div class="msg-avatar ai">AI</div>
+                ''', unsafe_allow_html=True)
+
+                answer_placeholder = st.empty()
+                full_answer = ""
+
+                try:
+                    ctx = build_context(role, user_id, question)
+                    # Stream token by token into the bubble
+                    with answer_placeholder.container():
+                        full_answer = st.write_stream(
+                            call_gemini_stream(
+                                role,
+                                st.session_state.history[:-1],
+                                question,
+                                ctx,
+                            )
+                        )
+                except Exception as e:
+                    full_answer = f"⚠️ Error: {str(e)[:200]}"
+                    answer_placeholder.error(full_answer)
+
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # Save to history (no rerun — UI already shows it)
+            st.session_state.history.append({"role": "model", "content": full_answer})
 
     st.markdown('</div>', unsafe_allow_html=True)  # end main-content
